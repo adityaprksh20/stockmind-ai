@@ -81,47 +81,42 @@ def format_market_cap(market_cap, ticker):
 # ============================================
 # CUSTOM CSS
 # ============================================
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        background: linear-gradient(
-            270deg, 
-            #FF6B6B, #FF8E53, #FFE66D, 
-            #4ECDC4, #45B7D1, #6C5CE7, 
-            #A363D9, #FF6B6B
-        );
-        background-size: 400% 400%;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        text-align: center;
-        padding: 1rem 0;
-        animation: gradient-shift 6s ease infinite;
-    }
-    @keyframes gradient-shift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-    .sub-header {
-        text-align: center;
-        color: #888;
-        font-size: 1.1rem;
-        margin-bottom: 2rem;
-    }
-    .disclaimer-box {
-        background: #fff3cd;
-        border: 1px solid #ffc107;
-        border-radius: 8px;
-        padding: 1rem;
-        font-size: 0.85rem;
-        color: #856404;
-    }
-</style>
-""", unsafe_allow_html=True)
-
+st.markdown(
+    "<style>"
+    ".main-header {"
+    "  font-size: 2.5rem;"
+    "  font-weight: bold;"
+    "  background: linear-gradient("
+    "    270deg,"
+    "    #FF6B6B, #FF8E53, #FFE66D,"
+    "    #4ECDC4, #45B7D1, #6C5CE7,"
+    "    #A363D9, #FF6B6B"
+    "  );"
+    "  background-size: 200%;"
+    "  -webkit-background-clip: text;"
+    "  -webkit-text-fill-color: transparent;"
+    "  background-clip: text;"
+    "  text-align: center;"
+    "  padding: 1rem 0;"
+    "}"
+    ".sub-header {"
+    "  text-align: center;"
+    "  color: #888;"
+    "  font-size: 1.1rem;"
+    "  margin-bottom: 2rem;"
+    "}"
+    ".disclaimer-box {"
+    "  background: #fff3cd;"
+    "  border: 1px solid #ffc107;"
+    "  border-radius: 8px;"
+    "  padding: 1rem;"
+    "  font-size: 0.85rem;"
+    "  color: #856404;"
+    "}"
+    "</style>",
+    unsafe_allow_html=True
+)
+      
 
 # ============================================
 # CACHE AGENTS
