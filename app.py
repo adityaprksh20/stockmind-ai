@@ -1,775 +1,502 @@
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 import streamlit as st
-import json
-from datetime import datetime
-
-from engines.mamba_engine import get_balanced_llm, get_creative_llm
-from engines.ephemeris_engine import EphemerisEngine
-from agents.stock_data_agent import StockDataAgent
-from agents.analysis_chain import StockAnalysisChain
-from agents.sentiment_agent import SentimentAgent
-from agents.jyotish_agent import JyotishAgent
-from agents.unified_advisor import UnifiedAdvisor
-from agents.prediction_engine import PredictionEngine, JyotishScorer
-from config.settings import (
-    FINANCIAL_DISCLAIMER,
-    JYOTISH_DISCLAIMER,
-    COMBINED_DISCLAIMER,
-    NIFTY50_TICKERS,
-    US_TICKERS,
-    MUTUAL_FUNDS
-)
-
-
-# ============================================
-# APP NAME & CONFIG
-# ============================================
-APP_NAME = "AstroInvest"
-APP_TAGLINE = "AI + Vedic Astrology Powered Trading Intelligence"
+import os
 
 st.set_page_config(
-    page_title=APP_NAME,
-    page_icon="🪐",
+    page_title="StockMind AI",
+    page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+)
+
+css_path = os.path.join(os.path.dirname(__file__), "assets", "style.css")
+if os.path.exists(css_path):
+    with open(css_path) as f:
+        st.markdown("<style>" + f.read() + "</style>", unsafe_allow_html=True)
+
+from datetime import datetime
+from engines.market_engine import (
+    fetch_market_data, fmt, fmt_large, chg_arrow,
+    ASSET_EXAMPLES, DEFAULT_WATCHLIST,
 )
 
 
-# ============================================
-# CURRENCY HELPER
-# ============================================
-def get_currency(ticker):
-    """Return currency symbol based on ticker"""
-    if ticker.endswith(".NS") or ticker.endswith(".BO"):
-        return "₹"
-    elif ticker.endswith(".L"):
-        return "£"
-    elif ticker.endswith(".DE") or ticker.endswith(".PA"):
-        return "€"
-    elif ticker.endswith(".T"):
-        return "¥"
-    else:
-        return "$"
-
-
-def format_price(price, ticker):
-    """Format price with correct currency"""
-    c = get_currency(ticker)
-    if price:
-        return c + "{:,.2f}".format(float(price))
-    return c + "N/A"
-
-
-def format_market_cap(market_cap, ticker):
-    """Format market cap with currency"""
-    c = get_currency(ticker)
-    if not market_cap:
-        return "N/A"
-    if market_cap >= 1e12:
-        return c + "{:.2f}T".format(market_cap / 1e12)
-    elif market_cap >= 1e9:
-        return c + "{:.2f}B".format(market_cap / 1e9)
-    elif market_cap >= 1e6:
-        return c + "{:.2f}M".format(market_cap / 1e6)
-    else:
-        return c + str(market_cap)
-
-
-# ============================================
-# CUSTOM CSS
-# ============================================
-st.markdown(
-    "<style>"
-    ".main-header {"
-    "  font-size: 2.5rem;"
-    "  font-weight: bold;"
-    "  background: linear-gradient("
-    "    270deg,"
-    "    #FF6B6B, #FF8E53, #FFE66D,"
-    "    #4ECDC4, #45B7D1, #6C5CE7,"
-    "    #A363D9, #FF6B6B"
-    "  );"
-    "  background-size: 200%;"
-    "  -webkit-background-clip: text;"
-    "  -webkit-text-fill-color: transparent;"
-    "  background-clip: text;"
-    "  text-align: center;"
-    "  padding: 1rem 0;"
-    "}"
-    ".sub-header {"
-    "  text-align: center;"
-    "  color: #888;"
-    "  font-size: 1.1rem;"
-    "  margin-bottom: 2rem;"
-    "}"
-    ".disclaimer-box {"
-    "  background: #fff3cd;"
-    "  border: 1px solid #ffc107;"
-    "  border-radius: 8px;"
-    "  padding: 1rem;"
-    "  font-size: 0.85rem;"
-    "  color: #856404;"
-    "}"
-    "</style>",
-    unsafe_allow_html=True
-)
-      
-
-# ============================================
-# CACHE AGENTS
-# ============================================
-@st.cache_resource
-def load_stock_agent():
-    return StockDataAgent()
-
-@st.cache_resource
-def load_analysis_chain():
-    return StockAnalysisChain()
-
-@st.cache_resource
-def load_sentiment_agent():
-    return SentimentAgent()
-
-@st.cache_resource
-def load_jyotish_agent():
-    return JyotishAgent()
-
-@st.cache_resource
-def load_ephemeris():
-    return EphemerisEngine()
-
-@st.cache_resource
-def load_unified_advisor():
-    return UnifiedAdvisor()
-
-@st.cache_resource
-def load_prediction_engine():
-    return PredictionEngine()
-
-@st.cache_resource
-def load_jyotish_scorer():
-    return JyotishScorer()
-
-
-# ============================================
-# SIDEBAR - ALL MODES IN ONE LIST
-# ============================================
-ALL_MODES = [
-    "🏠 Dashboard",
-    "🎯 Stock Predictor",
-    "📡 Market Scanner",
-    "🏭 Sector Heatmap",
-    "📊 Stock Analysis",
-    "🔍 Stock Screener",
-    "📰 Market Sentiment",
-    "🪐 Jyotish Prediction",
-    "🔮 World Events",
-    "⭐ Stock Kundali",
-    "🎯 Unified Advisor",
-    "🔄 Sector Rotation",
-    "💰 Mutual Funds",
-]
-
+# ═══════════════════════════════════════════════════════
+# SIDEBAR
+# ═══════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("## 🪐 " + APP_NAME)
-    st.caption(APP_TAGLINE)
+    st.markdown("## StockMind AI")
+    st.caption("Market Intelligence for Global Assets")
     st.markdown("---")
 
-    mode = st.radio("Choose Mode", ALL_MODES, index=0)
-
-    st.markdown("---")
-
-    # LLM Status
-    try:
-        llm = get_balanced_llm()
-        info = llm.get_info()
-        st.success("🤖 " + info["label"])
-    except Exception:
-        st.error("LLM not configured")
-
-    st.markdown("---")
-    st.caption(
-        "Not financial advice. Jyotish is speculative. "
-        "Consult SEBI/SEC registered advisors."
-    )
-
-
-# ============================================
-# DASHBOARD
-# ============================================
-if mode == "🏠 Dashboard":
-    st.markdown(
-        '<div class="main-header">🪐 ' + APP_NAME + '</div>',
-        unsafe_allow_html=True
-    )
-    st.markdown(
-        '<div class="sub-header">' + APP_TAGLINE + '</div>',
-        unsafe_allow_html=True
-    )
-
-    try:
-        ephemeris = load_ephemeris()
-        report = ephemeris.get_market_report()
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            mood = report["market_mood"]
-            if mood == "BULLISH":
-                st.metric("🪐 Market Mood", "🟢 BULLISH")
-            elif mood == "BEARISH":
-                st.metric("🪐 Market Mood", "🔴 BEARISH")
-            else:
-                st.metric("🪐 Market Mood", "🟡 NEUTRAL")
-        with col2:
-            st.metric("⬆️ Positive Signals", report["positive_signals"])
-        with col3:
-            st.metric("⬇️ Negative Signals", report["negative_signals"])
-
-        # Planetary Positions
-        st.markdown("### 🪐 Current Planetary Positions (Vedic)")
-        positions = report["planetary_positions"]
-        planet_cols = st.columns(3)
-        planet_emojis = {
-            "Sun": "☀️", "Moon": "🌙", "Mars": "♂️",
-            "Mercury": "☿️", "Jupiter": "♃", "Venus": "♀️",
-            "Saturn": "♄", "Rahu": "🐉", "Ketu": "🔥"
-        }
-        for i, (planet, data) in enumerate(positions.items()):
-            col = planet_cols[i % 3]
-            emoji = planet_emojis.get(planet, "⭐")
-            retro = " ℞" if data.get("retrograde") else ""
-            with col:
-                st.markdown(
-                    "**" + emoji + " " + planet + retro + "**  \n" +
-                    data["sign"] + " " + str(round(data["degree"], 1)) + "°  \n" +
-                    "Nakshatra: " + data["nakshatra"]
-                )
-
-        # Yogas
-        yogas = report["active_yogas"]
-        if yogas:
-            st.markdown("### ⭐ Active Market Yogas")
-            for yoga in yogas[:8]:
-                s = yoga["strength"]
-                icon = "🟢" if s == "POSITIVE" else "🔵" if s == "STRONG" else "🔴" if s == "CAUTION" else "🟡"
-                st.markdown(
-                    icon + " **" + yoga["planets"] + "** (" +
-                    yoga["type"] + "): " + yoga["significance"]
-                )
-    except Exception as e:
-        st.error("Dashboard error: " + str(e))
-
-    # Quick Stock Check
-    st.markdown("---")
-    st.markdown("### ⚡ Quick Stock Check")
-    qcol1, qcol2 = st.columns([3, 1])
-    with qcol1:
-        quick_ticker = st.text_input("Ticker", "RELIANCE.NS", key="qt")
-    with qcol2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        quick_btn = st.button("Check", type="primary", key="qb")
-
-    if quick_btn:
-        try:
-            agent = load_stock_agent()
-            info = agent.get_stock_info(quick_ticker)
-            if "error" not in info:
-                c = get_currency(quick_ticker)
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("💰 Price", format_price(info["current_price"], quick_ticker))
-                c2.metric("📊 PE", str(info["pe_ratio"]))
-                c3.metric("📈 52W High", format_price(info["52_week_high"], quick_ticker))
-                c4.metric("📉 52W Low", format_price(info["52_week_low"], quick_ticker))
-        except Exception as e:
-            st.error(str(e))
-
-
-# ============================================
-# STOCK PREDICTOR
-# ============================================
-elif mode == "🎯 Stock Predictor":
-    st.title("🎯 " + APP_NAME + " Stock Predictor")
-    st.markdown("**Combined BUY/SELL signals** from Fundamentals + Technicals + Vedic Astrology")
-
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        pred_ticker = st.text_input("Stock Ticker", "RELIANCE.NS", key="pred_t")
-    with col2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        predict_btn = st.button("🎯 Predict", type="primary", key="pred_b")
-
-    with st.expander("⚙️ Adjust Signal Weights"):
-        w_fund = st.slider("Fundamental %", 0, 100, 40)
-        w_tech = st.slider("Technical %", 0, 100, 30)
-        w_jyot = st.slider("Jyotish %", 0, 100, 30)
-        total = w_fund + w_tech + w_jyot
-        if total > 0:
-            weights = {
-                "fundamental": w_fund / total,
-                "technical": w_tech / total,
-                "jyotish": w_jyot / total
-            }
-        else:
-            weights = {"fundamental": 0.4, "technical": 0.3, "jyotish": 0.3}
-
-    if predict_btn:
-        with st.spinner("Analyzing " + pred_ticker + "..."):
-            engine = load_prediction_engine()
-            pred = engine.predict_stock(pred_ticker, weights)
-            cur = get_currency(pred_ticker)
-
-            st.markdown("---")
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("📊 Fundamental", str(pred["scores"]["fundamental"]) + "/10")
-            c2.metric("📈 Technical", str(pred["scores"]["technical"]) + "/10")
-            c3.metric("🪐 Jyotish", str(pred["scores"]["jyotish"]) + "/10")
-            c4.metric("🎯 COMBINED", str(pred["scores"]["combined"]) + "/10")
-
-            action = pred["action"]
-            confidence = pred["confidence"]
-            emoji = pred["emoji"]
-
-            if "BUY" in action:
-                st.success(emoji + " **" + action + "** | Confidence: " + str(confidence) + "%")
-            elif "SELL" in action:
-                st.error(emoji + " **" + action + "** | Confidence: " + str(confidence) + "%")
-            else:
-                st.warning(emoji + " **" + action + "** | Confidence: " + str(confidence) + "%")
-
-            with st.expander("📊 Fundamental Details"):
-                details = pred["fundamental_data"].get("details", {})
-                finfo = pred["fundamental_data"].get("info", {})
-                if finfo:
-                    st.markdown("- **Price:** " + format_price(finfo.get("current_price", 0), pred_ticker))
-                    st.markdown("- **Market Cap:** " + format_market_cap(finfo.get("market_cap", 0), pred_ticker))
-                for key, val in details.items():
-                    st.markdown("- **" + key + ":** " + str(val))
-
-            with st.expander("📈 Technical Details"):
-                tech = pred["technical_data"]
-                if "error" not in tech:
-                    st.markdown("- **Price:** " + format_price(tech.get("current_price", 0), pred_ticker))
-                    st.markdown("- **RSI:** " + str(tech.get("rsi", "N/A")) + " (" + str(tech.get("rsi_signal", "")) + ")")
-                    st.markdown("- **MACD Bullish:** " + str(tech.get("macd_bullish", "N/A")))
-                    st.markdown("- **Above SMA 20:** " + str(tech.get("above_sma20", "N/A")))
-                    st.markdown("- **Above SMA 50:** " + str(tech.get("above_sma50", "N/A")))
-                    st.markdown("- **Volume Surge:** " + str(tech.get("volume_surge", "N/A")))
-
-            with st.expander("🪐 Jyotish Details"):
-                for r in pred["jyotish_data"].get("reasons", []):
-                    st.markdown("- " + r)
-
-            st.markdown("---")
-            st.markdown("### 🤖 AI Report")
-            with st.spinner("Generating report..."):
-                report = engine.generate_ai_report(pred)
-                st.markdown(report)
-
-        st.warning(COMBINED_DISCLAIMER)
-
-
-# ============================================
-# MARKET SCANNER
-# ============================================
-elif mode == "📡 Market Scanner":
-    st.title("📡 " + APP_NAME + " Market Scanner")
-    st.markdown("Scan stocks for **best BUY/SELL** using combined analysis")
-
-    market_choice = st.selectbox("Market", ["India - Nifty 50", "US - Top 20", "Both"])
-
-    if market_choice == "India - Nifty 50":
-        scan_tickers = NIFTY50_TICKERS[:15]
-        cur = "₹"
-    elif market_choice == "US - Top 20":
-        scan_tickers = US_TICKERS[:15]
-        cur = "$"
+    use_jyotish = st.toggle("Vedic Jyotish Layer", value=False)
+    if use_jyotish:
+        st.caption("Planetary signals added to verdict")
     else:
-        scan_tickers = NIFTY50_TICKERS[:10] + US_TICKERS[:10]
-        cur = "₹/$"
+        st.caption("Pure market analysis only")
 
-    st.info("Scanning " + str(len(scan_tickers)) + " stocks. Takes 1-2 minutes.")
+    st.markdown("---")
 
-    if st.button("📡 Scan Now", type="primary"):
-        engine = load_prediction_engine()
-        progress = st.progress(0)
-        status = st.empty()
-        results = []
+    modes = ["Analyze", "Watchlist"]
+    if use_jyotish:
+        modes.append("Validate Jyotish")
+    mode = st.radio("Mode", modes, label_visibility="collapsed")
 
-        for i, ticker in enumerate(scan_tickers):
-            status.text("Scanning " + ticker + "...")
-            progress.progress((i + 1) / len(scan_tickers))
-            try:
-                pred = engine.predict_stock(ticker)
-                results.append(pred)
-            except Exception:
-                continue
+    st.markdown("---")
 
-        progress.empty()
-        status.empty()
-        results.sort(key=lambda x: x["scores"]["combined"], reverse=True)
+    with st.expander("Supported Assets"):
+        for category, tickers in ASSET_EXAMPLES.items():
+            st.markdown("**" + category + "**")
+            st.caption(", ".join(tickers))
 
-        st.markdown("### 🟢 TOP BUY SIGNALS")
-        for r in results[:5]:
-            c = get_currency(r["ticker"])
-            price = r["fundamental_data"].get("info", {}).get("current_price", "N/A")
-            st.markdown(
-                r["emoji"] + " **" + r["ticker"] + "** " +
-                c + str(price) + " | Score: **" +
-                str(r["scores"]["combined"]) + "/10** | " +
-                "F:" + str(r["scores"]["fundamental"]) + " " +
-                "T:" + str(r["scores"]["technical"]) + " " +
-                "J:" + str(r["scores"]["jyotish"]) + " | **" +
-                r["action"] + "** (" + str(r["confidence"]) + "%)"
-            )
+    st.markdown(
+        '<div class="disclaimer-box">'
+        "Not financial advice. Jyotish signals are experimental."
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
-        st.markdown("### 🔴 SELL/AVOID SIGNALS")
-        for r in results[-3:]:
-            c = get_currency(r["ticker"])
-            st.markdown(
-                r["emoji"] + " **" + r["ticker"] + "** | Score: **" +
-                str(r["scores"]["combined"]) + "/10** | **" + r["action"] + "**"
-            )
 
-        with st.expander("📋 All Results"):
-            for r in results:
-                c = get_currency(r["ticker"])
-                st.markdown(
-                    r["emoji"] + " " + r["ticker"] + " | " +
-                    str(r["scores"]["combined"]) + "/10 | " + r["action"]
-                )
+# ═══════════════════════════════════════════════════════
+# HELPER: JYOTISH
+# ═══════════════════════════════════════════════════════
+def calculate_jyotish():
+    from engines.ephemeris_engine import EphemerisEngine
+    from engines.vedic_core import BPHSSystem, BNNSystem
 
+    eph = EphemerisEngine()
+    bphs = BPHSSystem()
+    bnn = BNNSystem()
+    now = datetime.now()
+    positions = eph.get_planetary_positions(now)
+
+    j_score = 50
+    planet_details = []
+
+    for planet, data in positions.items():
+        bala = bphs.calculate_graha_bala(
+            planet, data["sign"], data["degree"], positions
+        )
+        adj = 0
+        if planet in ["Jupiter", "Venus", "Mercury"]:
+            if bala["status"] in ["VERY_STRONG", "STRONG"]:
+                adj = 2
+            elif bala["status"] == "VERY_WEAK":
+                adj = -2
+        if planet == "Moon":
+            if bala["status"] in ["VERY_STRONG", "STRONG"]:
+                adj = 3
+            elif bala["status"] == "VERY_WEAK":
+                adj = -3
+        if planet in ["Saturn", "Mars"] and bala["status"] == "VERY_WEAK":
+            adj = -2
+
+        j_score += adj
+        planet_details.append({
+            "planet": planet,
+            "sign": data["sign"],
+            "degree": round(data["degree"], 1),
+            "retro": data.get("retrograde", False),
+            "status": bala["status"],
+            "adj": adj,
+        })
+
+    dhana_yogas = bphs.detect_dhana_yogas(positions)
+    for y in dhana_yogas:
+        if y["strength"] in ["VERY_STRONG", "STRONG"]:
+            j_score += 3
+        elif y["strength"] in ["NEGATIVE", "VERY_NEGATIVE"]:
+            j_score -= 4
+
+    bnn_result = bnn.get_market_nakshatra_score(positions)
+    bnn_val = bnn_result.get("bnn_score", 5)
+    j_score += (bnn_val - 5) * 1.5
+
+    moon_analysis = bnn.get_moon_nakshatra_analysis(positions)
+    retro_count = sum(
+        1 for p, d in positions.items()
+        if d.get("retrograde") and p not in ["Rahu", "Ketu"]
+    )
+    j_score -= retro_count * 1.5
+    j_score = max(0, min(100, round(j_score, 1)))
+
+    j_signal = (
+        "STRONG_BUY" if j_score >= 70 else
+        "BUY" if j_score >= 60 else
+        "NEUTRAL" if j_score >= 40 else
+        "SELL" if j_score >= 30 else
+        "STRONG_SELL"
+    )
+
+    moon_nak = "-"
+    if "error" not in moon_analysis:
+        moon_nak = moon_analysis.get("nakshatra", "-")
+
+    return {
+        "score": j_score,
+        "signal": j_signal,
+        "bnn_score": bnn_val,
+        "retro_count": retro_count,
+        "dhana_yogas": dhana_yogas,
+        "moon_nakshatra": moon_nak,
+        "planets": planet_details,
+    }
+
+
+def signal_pill(signal):
+    colors = {
+        "BULLISH": "pill-green", "STRONG_BUY": "pill-green", "BUY": "pill-green",
+        "BEARISH": "pill-red", "STRONG_SELL": "pill-red", "SELL": "pill-red",
+        "NEUTRAL": "pill-yellow", "HOLD": "pill-yellow",
+    }
+    css = colors.get(signal, "pill-blue")
+    return '<span class="pill ' + css + '">' + signal + "</span>"
+
+
+def combined_verdict(tech_score, fund_score, j_score=None, use_j=False):
+    if use_j and j_score is not None:
+        w_t, w_f, w_j = 0.30, 0.45, 0.25
+        score = round(tech_score * w_t + fund_score * w_f + j_score * w_j, 1)
+        weights = "Tech " + str(int(w_t * 100)) + "% | Fund " + str(int(w_f * 100)) + "% | Jyotish " + str(int(w_j * 100)) + "%"
+    else:
+        w_t, w_f = 0.40, 0.60
+        score = round(tech_score * w_t + fund_score * w_f, 1)
+        weights = "Tech " + str(int(w_t * 100)) + "% | Fund " + str(int(w_f * 100)) + "%"
+
+    signal = (
+        "STRONG BUY" if score >= 72 else
+        "BUY" if score >= 58 else
+        "HOLD" if score >= 42 else
+        "SELL" if score >= 28 else
+        "STRONG SELL"
+    )
+    return score, signal, weights
+
+
+# ═══════════════════════════════════════════════════════
+# MODE 1: ANALYZE
+# ═══════════════════════════════════════════════════════
+if mode == "Analyze":
+    st.markdown("# Analyze")
+
+    col_t, col_h, col_go = st.columns([3, 2, 1])
+    with col_t:
+        ticker = st.text_input(
+            "Ticker / Symbol",
+            "RELIANCE.NS",
+            placeholder="AAPL, TCS.NS, SPY, BTC-USD...",
+        )
+    with col_h:
+        horizon = st.selectbox("Horizon", ["1 Week", "1 Month", "3 Months", "1 Year"])
+    with col_go:
+        st.markdown("<br>", unsafe_allow_html=True)
+        run = st.button("Analyze", type="primary", use_container_width=True)
+
+    if run and ticker.strip():
+        ticker = ticker.strip().upper()
+
+        with st.spinner("Fetching " + ticker + "..."):
+            d = fetch_market_data(ticker)
+
+        if "error" in d:
+            st.error(d["error"])
+            st.stop()
+
+        j = None
+        if use_jyotish:
+            with st.spinner("Calculating Jyotish..."):
+                j = calculate_jyotish()
+
+        # HEADER
         st.markdown("---")
-        st.markdown("### 🤖 AI Trading Plan")
-        with st.spinner("Generating..."):
-            scan_data = {
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "total_scanned": len(results),
-                "top_buys": [r for r in results if r["scores"]["combined"] >= 6][:5],
-                "top_sells": [r for r in results if r["scores"]["combined"] < 4][:3],
-                "all_results": results
-            }
-            report = engine.generate_scan_report(scan_data)
-            st.markdown(report)
+        st.markdown(
+            "### " + d["name"] + " &nbsp;&nbsp;" + signal_pill(d["asset_type"]),
+            unsafe_allow_html=True,
+        )
 
-        st.warning(COMBINED_DISCLAIMER)
+        h1, h2, h3, h4, h5 = st.columns(5)
+        h1.metric("Price", d["currency"] + str(d["price"]), str(d["chg_1d"]) + "% today")
+        h2.metric("1 Week", chg_arrow(d["chg_1w"]))
+        h3.metric("1 Month", chg_arrow(d["chg_1m"]))
+        h4.metric("1 Year", chg_arrow(d["chg_1y"]))
+        h5.metric("From 52W High", str(d["from_high"]) + "%")
+
+        # THREE PILLARS
+        st.markdown('<div class="section-label">Signal Breakdown</div>', unsafe_allow_html=True)
+
+        if use_jyotish and j:
+            col_tech, col_fund, col_jyo = st.columns(3)
+        else:
+            col_tech, col_fund = st.columns(2)
+            col_jyo = None
+
+        with col_tech:
+            st.markdown(
+                '<div class="signal-card"><h4>Technical</h4>'
+                '<div class="value">' + signal_pill(d["tech_signal"]) +
+                " &nbsp; " + str(d["tech_score"]) + "/100</div></div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown("**Trend**")
+            st.markdown("SMA 20: " + d["currency"] + str(d["sma_20"]) + ("  ✅" if d["price"] > d["sma_20"] else "  ⚠️"))
+            st.markdown("SMA 50: " + d["currency"] + str(d["sma_50"]) + ("  ✅" if d["price"] > d["sma_50"] else "  ⚠️"))
+            if d["sma_200"]:
+                st.markdown("SMA 200: " + d["currency"] + str(d["sma_200"]) + ("  ✅" if d["price"] > d["sma_200"] else "  ⚠️"))
+            st.markdown("**Momentum**")
+            rsi_tag = " Overbought" if d["rsi"] > 70 else " Oversold" if d["rsi"] < 30 else " Normal"
+            st.markdown("RSI (14): " + str(d["rsi"]) + rsi_tag)
+            st.markdown("MACD: " + str(d["macd"]) + ("  ✅ Bullish" if d["macd"] > 0 else "  ⚠️ Bearish"))
+            st.markdown("**Volatility**")
+            st.markdown("Bollinger: " + d["currency"] + str(d["bb_lower"]) + " - " + d["currency"] + str(d["bb_upper"]))
+            vol_ratio = round(d["vol_today"] / d["vol_avg"], 1) if d["vol_avg"] > 0 else 0
+            st.markdown("Volume: " + str(vol_ratio) + "x avg")
+
+        with col_fund:
+            st.markdown(
+                '<div class="signal-card"><h4>Fundamental</h4>'
+                '<div class="value">' + signal_pill(d["fund_signal"]) +
+                " &nbsp; " + str(d["fund_score"]) + "/100</div></div>",
+                unsafe_allow_html=True,
+            )
+
+            if d["asset_type"] in ["ETF", "Mutual Fund"]:
+                st.markdown("**Fund Metrics**")
+                st.markdown("NAV: " + fmt(d["nav"], prefix=d["currency"]))
+                st.markdown("Expense Ratio: " + fmt(d["expense_ratio"], suffix="%", mult=100))
+                st.markdown("Total Assets: " + fmt_large(d["total_assets"]))
+                st.markdown("YTD Return: " + fmt(d["ytd_return"], suffix="%", mult=100))
+                st.markdown("3Y Return: " + fmt(d["three_yr_return"], suffix="%", mult=100))
+                st.markdown("5Y Return: " + fmt(d["five_yr_return"], suffix="%", mult=100))
+            else:
+                st.markdown("**Valuation**")
+                pe_display = fmt(d["pe"])
+                if d["pe"]:
+                    pe_display += "  ✅" if d["pe"] < 25 else ("  ⚠️" if d["pe"] > 40 else "")
+                st.markdown("P/E: " + pe_display)
+                st.markdown("Fwd P/E: " + fmt(d["fwd_pe"]))
+                st.markdown("P/B: " + fmt(d["pb"]))
+                st.markdown("P/S: " + fmt(d["ps"]))
+                st.markdown("**Quality**")
+                roe_display = fmt(d["roe"], suffix="%", mult=100)
+                if d["roe"] and d["roe"] > 0.15:
+                    roe_display += "  ✅"
+                st.markdown("ROE: " + roe_display)
+                st.markdown("Profit Margin: " + fmt(d["profit_margin"], suffix="%", mult=100))
+                de_display = fmt(d["debt_eq"])
+                if d["debt_eq"] is not None:
+                    de_display += "  ✅" if d["debt_eq"] < 100 else ("  ⚠️" if d["debt_eq"] > 200 else "")
+                st.markdown("Debt/Equity: " + de_display)
+                st.markdown("**Growth**")
+                st.markdown("Revenue Growth: " + fmt(d["rev_growth"], suffix="%", mult=100))
+                st.markdown("Div Yield: " + fmt(d["div_yield"], suffix="%", mult=100))
+                st.markdown("Market Cap: " + fmt_large(d["mkt_cap"]))
+
+        if col_jyo and j:
+            with col_jyo:
+                j_pill = signal_pill(j["signal"])
+                st.markdown(
+                    '<div class="signal-card"><h4>Jyotish</h4>'
+                    '<div class="value">' + j_pill +
+                    " &nbsp; " + str(j["score"]) + "/100</div></div>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown("**Key Indicators**")
+                st.markdown("Moon Nakshatra: **" + j["moon_nakshatra"] + "**")
+                st.markdown("Dhana Yogas: **" + str(len(j["dhana_yogas"])) + "** active")
+                st.markdown("BNN Score: **" + str(j["bnn_score"]) + "**/10")
+                st.markdown("Retrogrades: **" + str(j["retro_count"]) + "**")
+
+                st.markdown("**Planetary Strength**")
+                for p in j["planets"]:
+                    icon = "🟢" if p["status"] in ["VERY_STRONG", "STRONG"] else "🔴" if p["status"] == "VERY_WEAK" else "⚪"
+                    retro_tag = " R" if p["retro"] else ""
+                    st.markdown(
+                        icon + " " + p["planet"] + " in " +
+                        p["sign"] + " " + str(p["degree"]) + "d" +
+                        retro_tag
+                    )
+
+        # COMBINED VERDICT
+        st.markdown('<div class="section-label">Combined Verdict</div>', unsafe_allow_html=True)
+
+        j_score_val = j["score"] if j else None
+        score, signal, weights = combined_verdict(
+            d["tech_score"], d["fund_score"], j_score_val, use_jyotish
+        )
+
+        css_class = "verdict-buy" if score >= 58 else "verdict-sell" if score < 42 else "verdict-hold"
+        st.markdown(
+            '<div class="verdict-box ' + css_class + '">'
+            '<div class="signal-text">' + signal + '</div>'
+            '<div class="score-text">Score: ' + str(score) + ' / 100</div>'
+            '<div class="weight-text">' + weights + '</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+        if use_jyotish and j and j["dhana_yogas"]:
+            with st.expander("Jyotish Market Details"):
+                st.markdown("**Active Dhana Yogas (Wealth Combinations):**")
+                for y in j["dhana_yogas"]:
+                    st.markdown(
+                        "- **" + y.get("yoga", "Yoga") + "** - " +
+                        y.get("description", "") +
+                        " | Strength: " + y["strength"]
+                    )
 
 
-# ============================================
-# SECTOR HEATMAP
-# ============================================
-elif mode == "🏭 Sector Heatmap":
-    st.title("🏭 Jyotish Sector Heatmap")
-    st.markdown("Sector strength based on current planetary positions")
+# ═══════════════════════════════════════════════════════
+# MODE 2: WATCHLIST
+# ═══════════════════════════════════════════════════════
+elif mode == "Watchlist":
+    st.markdown("# Watchlist")
 
-    if st.button("🪐 Generate Heatmap", type="primary"):
-        with st.spinner("Calculating..."):
-            scorer = load_jyotish_scorer()
-            sectors = scorer.score_all_sectors()
+    default_str = ", ".join(DEFAULT_WATCHLIST)
+    tickers_input = st.text_area(
+        "Enter tickers (comma-separated)",
+        default_str,
+        height=68,
+        placeholder="AAPL, RELIANCE.NS, SPY, BTC-USD...",
+    )
 
-            st.markdown("### Sector Rankings")
-            for sector, data in sectors.items():
-                score = data["score"]
-                if score >= 7:
-                    icon = "🟢"
-                    label = "STRONG BUY"
-                elif score >= 6:
-                    icon = "🟢"
-                    label = "BUY"
-                elif score >= 4:
-                    icon = "🟡"
-                    label = "HOLD"
-                else:
-                    icon = "🔴"
-                    label = "AVOID"
+    if st.button("Load Watchlist", type="primary"):
+        tickers = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
 
-                support = ", ".join(data["supporting_planets"]) if data["supporting_planets"] else "None"
-                oppose = ", ".join(data["opposing_planets"]) if data["opposing_planets"] else "None"
+        if not tickers:
+            st.warning("Enter at least one ticker.")
+            st.stop()
 
-                st.markdown(icon + " **" + sector + "** — " + str(score) + "/10 — **" + label + "**")
-                st.caption("Supporting: " + support + " | Opposing: " + oppose)
+        j = None
+        if use_jyotish:
+            with st.spinner("Calculating Jyotish..."):
+                j = calculate_jyotish()
 
-        st.warning(JYOTISH_DISCLAIMER)
+        progress = st.progress(0)
+        results = []
+        for i, t in enumerate(tickers):
+            progress.progress((i + 1) / len(tickers), text="Fetching " + t + "...")
+            d = fetch_market_data(t)
+            if "error" not in d:
+                results.append(d)
+        progress.empty()
+
+        if not results:
+            st.error("No data found.")
+            st.stop()
+
+        if use_jyotish and j:
+            st.markdown(
+                '<div class="signal-card">'
+                '<b>Jyotish Overlay</b> &nbsp; ' +
+                signal_pill(j["signal"]) +
+                " &nbsp; Score: " + str(j["score"]) + "/100 &nbsp;|&nbsp; "
+                "Moon: " + j["moon_nakshatra"] +
+                " &nbsp;|&nbsp; Dhana Yogas: " + str(len(j["dhana_yogas"])) +
+                " &nbsp;|&nbsp; Retrogrades: " + str(j["retro_count"]) +
+                "</div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown("")
+
+        hdr = st.columns([2, 1, 1, 1, 1, 1, 1, 1])
+        hdr[0].markdown("**Asset**")
+        hdr[1].markdown("**Price**")
+        hdr[2].markdown("**1D**")
+        hdr[3].markdown("**1W**")
+        hdr[4].markdown("**1M**")
+        hdr[5].markdown("**RSI**")
+        hdr[6].markdown("**Technical**")
+        hdr[7].markdown("**Verdict**")
+
+        for d in results:
+            j_val = j["score"] if j else None
+            score, signal, _ = combined_verdict(
+                d["tech_score"], d["fund_score"], j_val, use_jyotish
+            )
+
+            row = st.columns([2, 1, 1, 1, 1, 1, 1, 1])
+            row[0].markdown("**" + d["ticker"] + "**  \n" + d["asset_type"])
+            row[1].markdown(d["currency"] + str(d["price"]))
+
+            for idx, chg in [(2, d["chg_1d"]), (3, d["chg_1w"]), (4, d["chg_1m"])]:
+                color = "🟢" if chg > 0 else "🔴" if chg < 0 else "⚪"
+                row[idx].markdown(color + " " + str(chg) + "%")
+
+            rsi_icon = "🔥" if d["rsi"] > 70 else "💎" if d["rsi"] < 30 else ""
+            row[5].markdown(str(d["rsi"]) + " " + rsi_icon)
+
+            row[6].markdown(signal_pill(d["tech_signal"]), unsafe_allow_html=True)
+            row[7].markdown(signal_pill(signal), unsafe_allow_html=True)
+
+            st.markdown("<hr style='margin:0; border-color:#1e2530;'>", unsafe_allow_html=True)
 
 
-# ============================================
-# STOCK ANALYSIS
-# ============================================
-elif mode == "📊 Stock Analysis":
-    st.title("📊 AI Stock Analysis")
+# ═══════════════════════════════════════════════════════
+# MODE 3: VALIDATE JYOTISH
+# ═══════════════════════════════════════════════════════
+elif mode == "Validate Jyotish":
+    st.markdown("# Validate Jyotish")
+    st.markdown(
+        "Tests Jyotish signals against **actual historical returns**. "
+        "Results may show it adds **no value**."
+    )
 
     col1, col2 = st.columns(2)
     with col1:
-        market = st.selectbox("Market", ["India (NSE)", "US", "UK", "Europe", "Japan"])
+        bt_ticker = st.text_input("Ticker", "RELIANCE.NS", key="bt_t")
     with col2:
-        ticker_map = {
-            "India (NSE)": (NIFTY50_TICKERS, "RELIANCE.NS"),
-            "US": (US_TICKERS, "AAPL"),
-            "UK": ([], "SHEL.L"),
-            "Europe": ([], "SAP.DE"),
-            "Japan": ([], "7203.T"),
-        }
-        tlist, default = ticker_map.get(market, ([], "AAPL"))
-        if tlist:
-            ticker = st.selectbox("Stock", ["Custom"] + tlist)
-            if ticker == "Custom":
-                ticker = st.text_input("Enter ticker", default)
+        bt_months = st.slider("Months of history", 3, 24, 6)
+
+    if st.button("Run Backtest", type="primary"):
+        from engines.backtester import MarketBacktester
+
+        with st.spinner("Backtesting " + bt_ticker + "... (2-5 min)"):
+            bt = MarketBacktester()
+            result = bt.backtest_stock(bt_ticker, bt_months)
+
+        if "error" in result:
+            st.error(result["error"])
         else:
-            ticker = st.text_input("Enter ticker", default)
-
-    if st.button("🔍 Analyze", type="primary"):
-        with st.spinner("Analyzing " + ticker + "..."):
-            agent = load_stock_agent()
-            info = agent.get_stock_info(ticker)
-
-            if "error" not in info:
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("💰 Price", format_price(info["current_price"], ticker))
-                c2.metric("📊 PE", str(info["pe_ratio"]))
-                c3.metric("📈 ROE", str(round(info["roe"] * 100, 2)) + "%")
-                c4.metric("🏦 Cap", format_market_cap(info["market_cap"], ticker))
-
-            chain = load_analysis_chain()
-            result = chain.analyze_stock(ticker)
             st.markdown("---")
-            st.markdown(result)
+            st.markdown("### Results: " + bt_ticker)
 
-        st.warning(FINANCIAL_DISCLAIMER)
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Correlation", str(result["correlation"]))
+            c2.metric("BUY Accuracy", str(result["buy_accuracy"]) + "%")
+            c3.metric("SELL Accuracy", str(result["sell_accuracy"]) + "%")
+            c4.metric("Signals", str(result["total_signals"]))
 
+            st.markdown("### Returns")
+            r1, r2, r3 = st.columns(3)
+            r1.metric("Buy and Hold", str(result["buy_hold_return"]) + "%")
+            r2.metric("Jyotish Strategy", str(result["jyotish_strategy_return"]) + "%")
+            op = result["jyotish_outperformance"]
+            r3.metric("Outperformance", str(op) + "%", delta=str(op) + "%")
 
-# ============================================
-# STOCK SCREENER
-# ============================================
-elif mode == "🔍 Stock Screener":
-    st.title("🔍 Stock Screener")
-
-    style = st.selectbox("Style", ["value", "growth", "dividend", "balanced"])
-    descs = {
-        "value": "Low PE, good ROE, undervalued",
-        "growth": "High ROE, strong momentum",
-        "dividend": "High yield, stable",
-        "balanced": "Mix of value + growth"
-    }
-    st.info("📋 " + descs[style])
-
-    if st.button("🎯 Screen", type="primary"):
-        with st.spinner("Screening..."):
-            chain = load_analysis_chain()
-            result = chain.find_best_stocks(style)
-            st.markdown(result)
-        st.warning(FINANCIAL_DISCLAIMER)
-
-
-# ============================================
-# MARKET SENTIMENT
-# ============================================
-elif mode == "📰 Market Sentiment":
-    st.title("📰 Market Sentiment")
-
-    tab1, tab2 = st.tabs(["Stock Sentiment", "Market Overview"])
-
-    with tab1:
-        c1, c2 = st.columns(2)
-        with c1:
-            s_ticker = st.text_input("Ticker", "TCS.NS", key="st")
-        with c2:
-            s_company = st.text_input("Company", "TCS", key="sc")
-
-        if st.button("📊 Analyze", key="sb"):
-            with st.spinner("Analyzing..."):
-                agent = load_sentiment_agent()
-                result = agent.analyze_sentiment(s_ticker, s_company)
-                st.markdown(result)
-            st.warning(FINANCIAL_DISCLAIMER)
-
-    with tab2:
-        if st.button("🌍 Market Overview", key="mb"):
-            with st.spinner("Analyzing..."):
-                agent = load_sentiment_agent()
-                result = agent.market_overview()
-                st.markdown(result)
-            st.warning(FINANCIAL_DISCLAIMER)
-
-
-# ============================================
-# JYOTISH PREDICTION
-# ============================================
-elif mode == "🪐 Jyotish Prediction":
-    st.title("🪐 Jyotish Market Prediction")
-    st.markdown(
-        '<div class="disclaimer-box">'
-        'Predictions based on Vedic Astrology. Speculative. Not financial advice.'
-        '</div>', unsafe_allow_html=True
-    )
-    st.markdown("")
-
-    if st.button("🔮 Get Prediction", type="primary"):
-        with st.spinner("Consulting Navagrahas..."):
-            agent = load_jyotish_agent()
-            result = agent.predict_market_trend()
-            st.markdown(result)
-        st.warning(JYOTISH_DISCLAIMER)
-
-
-# ============================================
-# WORLD EVENTS
-# ============================================
-elif mode == "🔮 World Events":
-    st.title("🔮 World Events Prediction")
-    st.markdown(
-        '<div class="disclaimer-box">'
-        'Mundane astrology predictions. Highly speculative.'
-        '</div>', unsafe_allow_html=True
-    )
-    st.markdown("")
-
-    if st.button("🌍 Predict", type="primary"):
-        with st.spinner("Reading planetary alignments..."):
-            agent = load_jyotish_agent()
-            result = agent.world_events_prediction()
-            st.markdown(result)
-        st.warning(JYOTISH_DISCLAIMER)
-
-
-# ============================================
-# STOCK KUNDALI
-# ============================================
-elif mode == "⭐ Stock Kundali":
-    st.title("⭐ Stock Kundali")
-
-    c1, c2 = st.columns(2)
-    with c1:
-        k_ticker = st.text_input("Ticker", "RELIANCE.NS", key="kt")
-    with c2:
-        k_date = st.date_input("Listing Date", datetime(1977, 5, 8))
-
-    common = {
-        "RELIANCE.NS": "1977-05-08",
-        "TCS.NS": "2004-08-25",
-        "INFY.NS": "1993-06-14",
-        "HDFCBANK.NS": "1995-11-08",
-        "AAPL": "1980-12-12",
-        "MSFT": "1986-03-13",
-        "GOOGL": "2004-08-19",
-    }
-    if k_ticker in common:
-        st.info("Known listing: " + common[k_ticker])
-
-    if st.button("⭐ Generate Kundali", type="primary"):
-        with st.spinner("Creating horoscope..."):
-            agent = load_jyotish_agent()
-            result = agent.analyze_stock_astrology(k_ticker, k_date.strftime("%Y-%m-%d"))
-            st.markdown(result)
-        st.warning(JYOTISH_DISCLAIMER)
-
-
-# ============================================
-# UNIFIED ADVISOR
-# ============================================
-elif mode == "🎯 Unified Advisor":
-    st.title("🎯 Unified Advisor")
-    st.markdown("Fundamental + Sentiment + Jyotish → ONE verdict")
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        u_ticker = st.text_input("Ticker", "RELIANCE.NS", key="ut")
-    with c2:
-        u_company = st.text_input("Company", "Reliance Industries", key="uc")
-    with c3:
-        u_listing = st.text_input("Listing Date", "1977-05-08", key="ul")
-
-    if st.button("🎯 Analyze", type="primary", key="ub"):
-        with st.spinner("Running 5 analyses... 1-2 minutes"):
-            advisor = load_unified_advisor()
-            result = advisor.complete_stock_analysis(
-                u_ticker, u_company,
-                u_listing if u_listing else None
-            )
-
-            with st.expander("📊 Fundamental"):
-                st.markdown(str(result["analyses"].get("fundamental", "N/A")))
-            with st.expander("📰 Sentiment"):
-                st.markdown(str(result["analyses"].get("sentiment", "N/A")))
-
-            planetary = result["analyses"].get("planetary", {})
-            if isinstance(planetary, dict) and "market_mood" in planetary:
-                with st.expander("🪐 Planetary"):
-                    st.markdown("**Mood:** " + planetary.get("market_mood", "N/A"))
-                    for y in planetary.get("active_yogas", [])[:5]:
-                        st.markdown("- **" + y["planets"] + ":** " + y["significance"])
-
-            with st.expander("🔮 Jyotish"):
-                st.markdown(str(result["analyses"].get("jyotish", "N/A")))
-
-            if "kundali" in result["analyses"]:
-                with st.expander("⭐ Kundali"):
-                    st.markdown(str(result["analyses"].get("kundali", "N/A")))
+            st.markdown("### Component Analysis")
+            for comp, corr in result["component_correlations"].items():
+                ac = abs(corr)
+                tag = "🟢 USEFUL" if ac > 0.15 else "🟡 WEAK" if ac > 0.05 else "🔴 NONE"
+                st.markdown(tag + " **" + comp + "**: " + str(corr))
 
             st.markdown("---")
-            st.markdown("## 🎯 COMBINED VERDICT")
-            st.markdown(result.get("combined_verdict", "No verdict"))
-
-        st.warning(COMBINED_DISCLAIMER)
-
-
-# ============================================
-# SECTOR ROTATION
-# ============================================
-elif mode == "🔄 Sector Rotation":
-    st.title("🔄 Sector Rotation")
-    st.markdown("Planet-based sector allocation")
-
-    if st.button("🔄 Analyze", type="primary"):
-        with st.spinner("Analyzing..."):
-            advisor = load_unified_advisor()
-            result = advisor.jyotish_sector_rotation()
-            st.markdown(result)
-        st.warning(JYOTISH_DISCLAIMER)
-
-
-# ============================================
-# MUTUAL FUNDS
-# ============================================
-elif mode == "💰 Mutual Funds":
-    st.title("💰 Mutual Fund Analysis")
-
-    category = st.selectbox(
-        "Category",
-        list(MUTUAL_FUNDS.keys()) + ["Custom"]
-    )
-
-    if category == "Custom":
-        fund_name = st.text_input("Fund Name", "SBI Bluechip Fund")
-    else:
-        fund_name = st.selectbox("Select Fund", MUTUAL_FUNDS[category])
-
-    st.markdown("**Selected:** " + fund_name)
-
-    if st.button("📊 Analyze Fund", type="primary", key="mf_btn"):
-        with st.spinner("Analyzing " + fund_name + "..."):
-            chain = load_analysis_chain()
-            result = chain.analyze_mutual_fund(fund_name)
-
-            if result and len(result) > 10:
-                st.markdown(result)
+            v = result["verdict"]
+            if v["adds_value"]:
+                st.success(
+                    "Jyotish adds value for " + bt_ticker +
+                    "  \nRecommended weight: **" + str(v["recommended_weight"]) + "%**" +
+                    "  \n" + v["honest_assessment"]
+                )
             else:
-                st.error("Could not generate analysis. Try again.")
+                st.error(
+                    "Jyotish does NOT add value for " + bt_ticker +
+                    "  \n" + v["honest_assessment"]
+                )
 
-        st.warning(FINANCIAL_DISCLAIMER)
-
-
-# ============================================
-# FOOTER
-# ============================================
-st.markdown("---")
-st.markdown(
-    '<div style="text-align: center; color: #888; font-size: 0.8rem;">'
-    '🪐 ' + APP_NAME + ' | ' + APP_TAGLINE + '<br>'
-    'Supports: 🇮🇳 NSE/BSE (₹) | 🇺🇸 NYSE/NASDAQ ($) | '
-    '🇬🇧 LSE (£) | 🇪🇺 EU (€) | 🇯🇵 TSE (¥)<br>'
-    'Not financial advice. For educational purposes only.'
-    '</div>',
-    unsafe_allow_html=True
-)
+            with st.expander("Raw Signal Data"):
+                import pandas as pd
+                raw_df = pd.DataFrame(result["raw_data"])
+                if not raw_df.empty:
+                    display_cols = ["date", "jyotish_score", "signal",
+                                    "actual_return", "dhana_yogas", "retrogrades"]
+                    display_cols = [c for c in display_cols if c in raw_df.columns]
+                    st.dataframe(raw_df[display_cols], use_container_width=True)
