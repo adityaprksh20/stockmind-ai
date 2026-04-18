@@ -86,11 +86,24 @@ st.markdown("""
     .main-header {
         font-size: 2.5rem;
         font-weight: bold;
-        background: linear-gradient(90deg, #FF6B6B, #FFE66D, #4ECDC4);
+        background: linear-gradient(
+            270deg, 
+            #FF6B6B, #FF8E53, #FFE66D, 
+            #4ECDC4, #45B7D1, #6C5CE7, 
+            #A363D9, #FF6B6B
+        );
+        background-size: 400% 400%;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        background-clip: text;
         text-align: center;
         padding: 1rem 0;
+        animation: gradient-shift 6s ease infinite;
+    }
+    @keyframes gradient-shift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
     }
     .sub-header {
         text-align: center;
