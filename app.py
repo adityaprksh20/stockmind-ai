@@ -1,3 +1,4 @@
+from agents.prediction_engine import PredictionEngine, JyotishScorer
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -140,6 +141,9 @@ with st.sidebar:
             "🎯 Unified Advisor",
             "🔄 Sector Rotation",
             "💰 Mutual Fund Analysis"
+            "🎯 Stock Predictor",
+            "📡 Market Scanner",
+            "🏭 Sector Heatmap",
         ],
         index=0
     )
@@ -639,6 +643,268 @@ elif mode == "💰 Mutual Fund Analysis":
 
         st.warning(FINANCIAL_DISCLAIMER)
 
+# ============================================
+# STOCK PREDICTOR
+# ============================================
+elif mode == "🎯 Stock Predictor":
+    st.title("🎯 AI + Jyotish Stock Predictor")
+    st.markdown(
+        "**Combined BUY/SELL signals** from Fundamentals + "
+        "Technicals + Vedic Astrology"
+    )
+
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        pred_ticker = st.text_input(
+            "Enter Stock Ticker",
+            "RELIANCE.NS",
+            key="pred_ticker"
+        )
+    with col2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        predict_btn = st.button("🎯 Predict", type="primary")
+
+    # Weight adjustment
+    with st.expander("⚙️ Adjust Signal Weights"):
+        st.markdown("How much to trust each signal source:")
+        w_fund = st.slider("Fundamental Weight", 0, 100, 40, key="w_fund")
+        w_tech = st.slider("Technical Weight", 0, 100, 30, key="w_tech")
+        w_jyot = st.slider("Jyotish Weight", 0, 100, 30, key="w_jyot")
+
+        total = w_fund + w_tech + w_jyot
+        if total > 0:
+            weights = {
+                "fundamental": w_fund / total,
+                "technical": w_tech / total,
+                "jyotish": w_jyot / total
+            }
+        else:
+            weights = {"fundamental": 0.4, "technical": 0.3, "jyotish": 0.3}
+
+    if predict_btn:
+        with st.spinner("Analyzing " + pred_ticker + " across 3 dimensions..."):
+            engine = PredictionEngine()
+            pred = engine.predict_stock(pred_ticker, weights)
+
+            # Score Cards
+            st.markdown("---")
+            c1, c2, c3, c4 = st.columns(4)
+
+            with c1:
+                st.metric(
+                    "📊 Fundamental",
+                    str(pred["scores"]["fundamental"]) + "/10"
+                )
+            with c2:
+                st.metric(
+                    "📈 Technical",
+                    str(pred["scores"]["technical"]) + "/10"
+                )
+            with c3:
+                st.metric(
+                    "🪐 Jyotish",
+                    str(pred["scores"]["jyotish"]) + "/10"
+                )
+            with c4:
+                st.metric(
+                    "🎯 COMBINED",
+                    str(pred["scores"]["combined"]) + "/10"
+                )
+
+            # Action Banner
+            action = pred["action"]
+            confidence = pred["confidence"]
+            emoji = pred["emoji"]
+
+            if "BUY" in action:
+                st.success(
+                    emoji + " **" + action + "** | "
+                    "Confidence: " + str(confidence) + "%"
+                )
+            elif "SELL" in action:
+                st.error(
+                    emoji + " **" + action + "** | "
+                    "Confidence: " + str(confidence) + "%"
+                )
+            else:
+                st.warning(
+                    emoji + " **" + action + "** | "
+                    "Confidence: " + str(confidence) + "%"
+                )
+
+            # Detailed Breakdown
+            with st.expander("📊 Fundamental Details"):
+                details = pred["fundamental_data"].get("details", {})
+                if details:
+                    for key, val in details.items():
+                        st.markdown("- **" + key + ":** " + str(val))
+
+            with st.expander("📈 Technical Details"):
+                tech = pred["technical_data"]
+                if "error" not in tech:
+                    st.markdown("- **RSI:** " + str(tech.get("rsi", "N/A")) + " (" + str(tech.get("rsi_signal", "")) + ")")
+                    st.markdown("- **MACD Bullish:** " + str(tech.get("macd_bullish", "N/A")))
+                    st.markdown("- **Above SMA 20:** " + str(tech.get("above_sma20", "N/A")))
+                    st.markdown("- **Above SMA 50:** " + str(tech.get("above_sma50", "N/A")))
+                    st.markdown("- **Volume Surge:** " + str(tech.get("volume_surge", "N/A")))
+
+            with st.expander("🪐 Jyotish Details"):
+                reasons = pred["jyotish_data"].get("reasons", [])
+                for r in reasons:
+                    st.markdown("- " + r)
+
+            # AI Report
+            st.markdown("---")
+            st.markdown("### 🤖 AI Analysis Report")
+            with st.spinner("Generating detailed report..."):
+                report = engine.generate_ai_report(pred)
+                st.markdown(report)
+
+        st.warning(COMBINED_DISCLAIMER)
+
+
+# ============================================
+# MARKET SCANNER
+# ============================================
+elif mode == "📡 Market Scanner":
+    st.title("📡 AI Market Scanner")
+    st.markdown(
+        "Scans stocks and finds the **best BUY and SELL** "
+        "opportunities using combined analysis"
+    )
+
+    market_choice = st.selectbox(
+        "Market",
+        ["India - Nifty 50", "US - Top 20", "Both"]
+    )
+
+    if market_choice == "India - Nifty 50":
+        scan_tickers = NIFTY50_TICKERS[:15]
+    elif market_choice == "US - Top 20":
+        scan_tickers = US_TICKERS[:15]
+    else:
+        scan_tickers = NIFTY50_TICKERS[:10] + US_TICKERS[:10]
+
+    st.info("Will scan " + str(len(scan_tickers)) + " stocks. Takes 1-2 minutes.")
+
+    if st.button("📡 Scan Market Now", type="primary"):
+        engine = PredictionEngine()
+
+        progress = st.progress(0)
+        status = st.empty()
+
+        results = []
+        for i, ticker in enumerate(scan_tickers):
+            status.text("Scanning " + ticker + "...")
+            progress.progress((i + 1) / len(scan_tickers))
+
+            try:
+                pred = engine.predict_stock(ticker)
+                results.append(pred)
+            except Exception:
+                continue
+
+        progress.empty()
+        status.empty()
+
+        results.sort(
+            key=lambda x: x["scores"]["combined"],
+            reverse=True
+        )
+
+        # Top Buys
+        st.markdown("### 🟢 TOP BUY SIGNALS")
+        for r in results[:5]:
+            score = r["scores"]["combined"]
+            st.markdown(
+                r["emoji"] + " **" + r["ticker"] + "** | "
+                "Combined: **" + str(score) + "/10** | "
+                "F:" + str(r["scores"]["fundamental"]) + " "
+                "T:" + str(r["scores"]["technical"]) + " "
+                "J:" + str(r["scores"]["jyotish"]) + " | "
+                "**" + r["action"] + "** (" +
+                str(r["confidence"]) + "% confidence)"
+            )
+
+        # Top Sells
+        st.markdown("### 🔴 TOP SELL/AVOID SIGNALS")
+        for r in results[-3:]:
+            score = r["scores"]["combined"]
+            st.markdown(
+                r["emoji"] + " **" + r["ticker"] + "** | "
+                "Combined: **" + str(score) + "/10** | "
+                "**" + r["action"] + "**"
+            )
+
+        # Full Table
+        with st.expander("📋 Full Scan Results"):
+            for r in results:
+                st.markdown(
+                    r["emoji"] + " " + r["ticker"] + " | " +
+                    str(r["scores"]["combined"]) + "/10 | " +
+                    r["action"]
+                )
+
+        # AI Report
+        st.markdown("---")
+        st.markdown("### 🤖 AI Market Report")
+        with st.spinner("Generating trading plan..."):
+            scan_data = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "total_scanned": len(results),
+                "top_buys": [r for r in results if r["scores"]["combined"] >= 6][:5],
+                "top_sells": [r for r in results if r["scores"]["combined"] < 4][:3],
+                "all_results": results
+            }
+            report = engine.generate_scan_report(scan_data)
+            st.markdown(report)
+
+        st.warning(COMBINED_DISCLAIMER)
+
+
+# ============================================
+# SECTOR HEATMAP
+# ============================================
+elif mode == "🏭 Sector Heatmap":
+    st.title("🏭 Jyotish Sector Heatmap")
+    st.markdown("Sector strength based on current planetary positions")
+
+    if st.button("🪐 Generate Sector Heatmap", type="primary"):
+        with st.spinner("Calculating planetary sector influence..."):
+            scorer = JyotishScorer()
+            sectors = scorer.score_all_sectors()
+
+            st.markdown("### Sector Rankings (Jyotish-Based)")
+
+            for sector, data in sectors.items():
+                score = data["score"]
+
+                if score >= 7:
+                    bar_color = "🟢"
+                    label = "STRONG BUY"
+                elif score >= 6:
+                    bar_color = "🟢"
+                    label = "BUY"
+                elif score >= 4:
+                    bar_color = "🟡"
+                    label = "HOLD"
+                else:
+                    bar_color = "🔴"
+                    label = "AVOID"
+
+                support = ", ".join(data["supporting_planets"]) if data["supporting_planets"] else "None"
+                oppose = ", ".join(data["opposing_planets"]) if data["opposing_planets"] else "None"
+
+                st.markdown(
+                    bar_color + " **" + sector + "** — " +
+                    str(score) + "/10 — **" + label + "**"
+                )
+                st.caption(
+                    "   Supporting: " + support +
+                    " | Opposing: " + oppose
+                )
+
+        st.warning(JYOTISH_DISCLAIMER)
 
 # ============================================
 # FOOTER
