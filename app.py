@@ -11,7 +11,7 @@ if os.path.exists(css_path):
 from datetime import datetime
 from engines.realtime_market import (
     fetch_market_data, fmt, fmt_large, chg_arrow,
-    ASSET_EXAMPLES, DEFAULT_WATCHLIST,
+    ASSET_EXAMPLES, DEFAULT_WATCHLIST, TICKER_FORMAT_GUIDE,
 )
 
 
@@ -30,10 +30,14 @@ with st.sidebar:
         modes.extend(["Sector Rotation", "Cosmic Events", "Validate"])
     mode = st.radio("Mode", modes, label_visibility="collapsed")
     st.markdown("---")
-    with st.expander("Supported Assets"):
+    with st.expander("Ticker Format Guide"):
+        st.markdown("**Type any valid ticker. Here are the formats:**")
+        for market, hint in TICKER_FORMAT_GUIDE.items():
+            st.markdown("**" + market + ":** " + hint)
+    with st.expander("Example Tickers"):
         for cat, tks in ASSET_EXAMPLES.items():
             st.markdown("**" + cat + "**")
-            st.caption(", ".join(tks))
+            st.caption(", ".join(tks[:8]) + (" ..." if len(tks) > 8 else ""))
     st.markdown('<div class="disclaimer-box">Not financial advice. Jyotish signals are experimental and must be validated.</div>', unsafe_allow_html=True)
 
 
@@ -67,7 +71,7 @@ if mode == "Analyze":
     st.markdown("# Analyze")
     c1, c2, c3 = st.columns([3, 2, 1])
     with c1:
-        ticker = st.text_input("Ticker", "RELIANCE.NS", placeholder="AAPL, TCS.NS, SPY, BTC-USD")
+        ticker = st.text_input("Any global ticker", "RELIANCE.NS", placeholder="AAPL, TCS.NS, SPY, BTC-USD, USDINR=X, GC=F, ^VIX...")
     with c2:
         horizon = st.selectbox("Horizon", ["1 Week", "1 Month", "3 Months", "1 Year"])
     with c3:
@@ -189,7 +193,14 @@ if mode == "Analyze":
         jsc = j["combined_score"] if j else None
         score, sig, wts = verdict_calc(d["tech_score"], d["fund_score"], jsc, use_jyotish)
         css = "verdict-buy" if score >= 58 else "verdict-sell" if score < 42 else "verdict-hold"
-        st.markdown("<div class=\"verdict-box " + css + "\"><div class=\"signal-text\">" + sig + "</div><div class=\"score-text\">Score: " + str(score) + " / 100</div><div class=\"weight-text\">" + wts + "</div></div>", unsafe_allow_html=True)
+        verdict_html = (
+            "<div class=\"verdict-box " + css + "\">"
+            "<div class=\"signal-text\">" + sig + "</div>"
+            "<div class=\"score-text\">Score: " + str(score) + " / 100</div>"
+            "<div class=\"weight-text\">" + wts + "</div>"
+            "</div>"
+        )
+        st.markdown(verdict_html, unsafe_allow_html=True)
 
         if use_jyotish and j:
             with st.expander("Planetary Positions (Real-Time Sidereal)"):
@@ -224,7 +235,12 @@ if mode == "Analyze":
 
 elif mode == "Watchlist":
     st.markdown("# Watchlist")
-    tickers_input = st.text_area("Tickers (comma-separated)", ", ".join(DEFAULT_WATCHLIST), height=68)
+    tickers_input = st.text_area(
+        "Tickers (comma-separated) - any global stock, ETF, crypto, forex, index",
+        ", ".join(DEFAULT_WATCHLIST),
+        height=80,
+        placeholder="AAPL, RELIANCE.NS, BTC-USD, USDINR=X, ^NSEI, GC=F, SPY..."
+    )
     if st.button("Load", type="primary"):
         tickers = [t.strip().upper() for t in tickers_input.split(",") if t.strip()]
         if not tickers:

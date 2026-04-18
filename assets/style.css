@@ -1,99 +1,245 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 .block-container {
-    padding-top: 2rem;
+    padding-top: 1.5rem;
     padding-bottom: 2rem;
     max-width: 1200px;
 }
 
-h1, h2, h3 { font-family: 'Inter', sans-serif; }
+h1, h2, h3, h4 {
+    font-family: 'Inter', sans-serif;
+}
 
 .signal-card {
-    background: #0e1117;
-    border: 1px solid #1e2530;
+    background: #f8f9fb;
+    border: 1px solid #e2e6ec;
     border-radius: 12px;
     padding: 1.2rem;
     margin-bottom: 0.8rem;
-}
-.signal-card h4 {
-    margin: 0 0 0.6rem 0;
-    font-size: 0.95rem;
-    color: #8899aa;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.signal-card .value {
-    font-size: 1.6rem;
-    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
-.verdict-box {
-    border-radius: 12px;
-    padding: 1.5rem;
-    text-align: center;
-    margin: 1rem 0;
+.signal-card h4 {
+    margin: 0 0 0.6rem 0;
+    font-size: 0.85rem;
+    color: #6b7280 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 600;
 }
-.verdict-buy {
-    background: linear-gradient(135deg, #0a2e1a, #0d3320);
-    border: 1px solid #1a6b3a;
-}
-.verdict-sell {
-    background: linear-gradient(135deg, #2e0a0a, #331010);
-    border: 1px solid #6b1a1a;
-}
-.verdict-hold {
-    background: linear-gradient(135deg, #2e2a0a, #332e10);
-    border: 1px solid #6b5f1a;
-}
-.verdict-box .signal-text {
-    font-size: 2rem;
+
+.signal-card .value {
+    font-size: 1.5rem;
     font-weight: 700;
-    margin-bottom: 0.3rem;
-}
-.verdict-box .score-text {
-    font-size: 1.1rem;
-    color: #aabbcc;
-}
-.verdict-box .weight-text {
-    font-size: 0.8rem;
-    color: #667788;
-    margin-top: 0.4rem;
+    color: #1a1f2e !important;
 }
 
 .pill {
     display: inline-block;
-    padding: 0.2rem 0.7rem;
+    padding: 0.25rem 0.75rem;
     border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-size: 0.78rem;
+    font-weight: 700;
     margin-right: 0.3rem;
+    letter-spacing: 0.3px;
+    vertical-align: middle;
 }
-.pill-green { background: #0d3320; color: #4ade80; border: 1px solid #1a6b3a; }
-.pill-red { background: #331010; color: #f87171; border: 1px solid #6b1a1a; }
-.pill-yellow { background: #332e10; color: #fbbf24; border: 1px solid #6b5f1a; }
-.pill-blue { background: #0a1e33; color: #60a5fa; border: 1px solid #1a3a6b; }
+
+.pill-green {
+    background: #ecfdf5;
+    color: #065f46 !important;
+    border: 1.5px solid #6ee7b7;
+}
+
+.pill-red {
+    background: #fef2f2;
+    color: #991b1b !important;
+    border: 1.5px solid #fca5a5;
+}
+
+.pill-yellow {
+    background: #fffbeb;
+    color: #92400e !important;
+    border: 1.5px solid #fcd34d;
+}
+
+.pill-blue {
+    background: #eff6ff;
+    color: #1e40af !important;
+    border: 1.5px solid #93c5fd;
+}
+
+.verdict-box {
+    border-radius: 14px;
+    padding: 1.8rem 1.5rem;
+    text-align: center;
+    margin: 1rem auto;
+    max-width: 500px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.verdict-buy {
+    background: #ecfdf5;
+    border: 2px solid #34d399;
+}
+.verdict-buy .signal-text { color: #065f46 !important; }
+.verdict-buy .score-text { color: #047857 !important; }
+
+.verdict-sell {
+    background: #fef2f2;
+    border: 2px solid #f87171;
+}
+.verdict-sell .signal-text { color: #991b1b !important; }
+.verdict-sell .score-text { color: #b91c1c !important; }
+
+.verdict-hold {
+    background: #fffbeb;
+    border: 2px solid #fbbf24;
+}
+.verdict-hold .signal-text { color: #92400e !important; }
+.verdict-hold .score-text { color: #a16207 !important; }
+
+.verdict-box .signal-text {
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin-bottom: 0.4rem;
+    letter-spacing: 1px;
+}
+
+.verdict-box .score-text {
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+}
+
+.verdict-box .weight-text {
+    font-size: 0.8rem;
+    color: #6b7280 !important;
+    margin-top: 0.3rem;
+    font-weight: 500;
+}
 
 .section-label {
-    font-size: 0.75rem;
-    color: #556677;
+    font-size: 0.72rem;
+    color: #6b7280 !important;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    margin: 1.5rem 0 0.5rem 0;
-    border-bottom: 1px solid #1e2530;
-    padding-bottom: 0.3rem;
+    letter-spacing: 1.2px;
+    margin: 1.8rem 0 0.6rem 0;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 0.4rem;
+    font-weight: 600;
 }
 
 .disclaimer-box {
-    background: #1a1a2e;
-    border-left: 3px solid #e2b714;
-    padding: 0.6rem 0.8rem;
-    font-size: 0.75rem;
-    color: #8899aa;
-    border-radius: 0 6px 6px 0;
+    background: #fefce8;
+    border-left: 3px solid #d69e2e;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.73rem;
+    color: #744210 !important;
+    border-radius: 0 8px 8px 0;
     margin: 0.5rem 0;
+    line-height: 1.4;
 }
 
-section[data-testid="stSidebar"] {
-    background: #080b10;
-    border-right: 1px solid #1e2530;
+section[data-testid="stSidebar"] * {
+    color: #374151 !important;
+}
+
+section[data-testid="stSidebar"] small,
+section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] * {
+    color: #6b7280 !important;
+}
+
+section[data-testid="stSidebar"] .disclaimer-box {
+    color: #744210 !important;
+}
+
+section[data-testid="stSidebar"] .pill-green { color: #065f46 !important; }
+section[data-testid="stSidebar"] .pill-red { color: #991b1b !important; }
+section[data-testid="stSidebar"] .pill-yellow { color: #92400e !important; }
+section[data-testid="stSidebar"] .pill-blue { color: #1e40af !important; }
+
+@media (prefers-color-scheme: dark) {
+    .signal-card {
+        background: #161b22 !important;
+        border-color: #2d333b !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+    }
+    .signal-card h4 { color: #8b949e !important; }
+    .signal-card .value { color: #e6edf3 !important; }
+
+    .pill-green {
+        background: #0d2818 !important;
+        color: #56d364 !important;
+        border-color: #2ea043 !important;
+    }
+    .pill-red {
+        background: #2d1215 !important;
+        color: #f85149 !important;
+        border-color: #da3633 !important;
+    }
+    .pill-yellow {
+        background: #2d2a10 !important;
+        color: #e3b341 !important;
+        border-color: #d29922 !important;
+    }
+    .pill-blue {
+        background: #0d1f33 !important;
+        color: #58a6ff !important;
+        border-color: #388bfd !important;
+    }
+
+    .verdict-buy {
+        background: linear-gradient(135deg, #0a2818, #0d3320) !important;
+        border-color: #2ea043 !important;
+    }
+    .verdict-buy .signal-text { color: #56d364 !important; }
+    .verdict-buy .score-text { color: #3fb950 !important; }
+
+    .verdict-sell {
+        background: linear-gradient(135deg, #2d1010, #331515) !important;
+        border-color: #da3633 !important;
+    }
+    .verdict-sell .signal-text { color: #f85149 !important; }
+    .verdict-sell .score-text { color: #f85149 !important; }
+
+    .verdict-hold {
+        background: linear-gradient(135deg, #2d2a0a, #332e10) !important;
+        border-color: #d29922 !important;
+    }
+    .verdict-hold .signal-text { color: #e3b341 !important; }
+    .verdict-hold .score-text { color: #d29922 !important; }
+
+    .verdict-box .weight-text { color: #8b949e !important; }
+
+    .section-label {
+        color: #8b949e !important;
+        border-bottom-color: #21262d !important;
+    }
+
+    .disclaimer-box {
+        background: #1a1a2e !important;
+        border-left-color: #d29922 !important;
+        color: #b1a16e !important;
+    }
+
+    section[data-testid="stSidebar"] {
+        background: #0d1117 !important;
+        border-right-color: #2d333b !important;
+    }
+    section[data-testid="stSidebar"] * {
+        color: #e6edf3 !important;
+    }
+    section[data-testid="stSidebar"] small,
+    section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] * {
+        color: #8b949e !important;
+    }
+    section[data-testid="stSidebar"] .disclaimer-box {
+        color: #b1a16e !important;
+    }
+    section[data-testid="stSidebar"] .pill-green { color: #56d364 !important; }
+    section[data-testid="stSidebar"] .pill-red { color: #f85149 !important; }
+    section[data-testid="stSidebar"] .pill-yellow { color: #e3b341 !important; }
+    section[data-testid="stSidebar"] .pill-blue { color: #58a6ff !important; }
 }

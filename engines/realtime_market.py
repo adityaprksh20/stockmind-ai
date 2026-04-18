@@ -13,15 +13,114 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 
+# ── ASSET EXAMPLES (for UI display only — app fetches ANY valid ticker) ──
 ASSET_EXAMPLES = {
-    "Indian Stocks": ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ITC.NS"],
-    "US Stocks": ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA"],
-    "Global": ["NESN.SW", "ASML.AS", "TSM", "SAP.DE", "SHOP.TO"],
-    "ETFs": ["SPY", "QQQ", "VTI", "EEM", "NIFTYBEES.NS", "GOLDBEES.NS"],
-    "Crypto": ["BTC-USD", "ETH-USD", "SOL-USD"],
+    "Indian Stocks (NSE)": [
+        "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ITC.NS",
+        "BHARTIARTL.NS", "SBIN.NS", "ICICIBANK.NS", "KOTAKBANK.NS", "LT.NS",
+        "HINDUNILVR.NS", "BAJFINANCE.NS", "MARUTI.NS", "TATAMOTORS.NS",
+        "SUNPHARMA.NS", "ADANIENT.NS", "ASIANPAINT.NS", "TITAN.NS",
+        "HCLTECH.NS", "WIPRO.NS", "ULTRACEMCO.NS", "NTPC.NS",
+        "POWERGRID.NS", "ONGC.NS", "JSWSTEEL.NS", "TATASTEEL.NS",
+        "COALINDIA.NS", "DRREDDY.NS", "CIPLA.NS", "APOLLOHOSP.NS",
+        "TATACONSUM.NS", "DIVISLAB.NS", "ZOMATO.NS", "PAYTM.NS",
+        "NYKAA.NS", "IRCTC.NS", "HAL.NS", "BEL.NS",
+    ],
+    "Indian Stocks (BSE)": [
+        "RELIANCE.BO", "TCS.BO", "HDFCBANK.BO", "INFY.BO",
+    ],
+    "US Stocks": [
+        "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "TSLA", "NVDA", "META",
+        "BRK-B", "JPM", "V", "MA", "JNJ", "WMT", "PG", "UNH",
+        "HD", "DIS", "NFLX", "PYPL", "AMD", "INTC", "CRM", "ORCL",
+        "CSCO", "PEP", "KO", "COST", "ABBV", "MRK", "PFE", "TMO",
+        "NKE", "SBUX", "BA", "CAT", "GE", "MMM", "IBM", "GS",
+        "MS", "C", "WFC", "AXP", "UBER", "ABNB", "SNAP", "SQ",
+        "ROKU", "PLTR", "SOFI", "RIVN", "LCID",
+    ],
+    "European Stocks": [
+        "NESN.SW", "NOVN.SW", "ROG.SW",
+        "ASML.AS", "PHIA.AS", "INGA.AS",
+        "SAP.DE", "SIE.DE", "ALV.DE", "BAS.DE", "BMW.DE", "MBG.DE", "DTE.DE",
+        "MC.PA", "OR.PA", "TTE.PA", "SAN.PA", "AIR.PA", "BNP.PA",
+        "SHEL.L", "AZN.L", "ULVR.L", "HSBA.L", "BP.L", "GSK.L", "RIO.L",
+        "SAN.MC", "TEF.MC", "ITX.MC",
+    ],
+    "Asian Stocks": [
+        "TSM", "9988.HK", "0700.HK", "9618.HK", "1211.HK",
+        "7203.T", "6758.T", "9984.T", "6861.T", "8306.T",
+        "005930.KS", "000660.KS", "035420.KS",
+        "GRAB", "SE",
+    ],
+    "Indian ETFs": [
+        "NIFTYBEES.NS", "BANKBEES.NS", "GOLDBEES.NS", "SILVERBEES.NS",
+        "JUNIORBEES.NS", "ITETF.NS", "CPSE.NS", "LIQUIDBEES.NS",
+        "MOM100.NS", "QUAL30IETF.NS",
+    ],
+    "US ETFs": [
+        "SPY", "QQQ", "IWM", "DIA", "VTI", "VOO", "VT",
+        "EEM", "EFA", "VWO", "IEMG",
+        "XLF", "XLK", "XLE", "XLV", "XLI", "XLP", "XLY", "XLB", "XLU", "XLRE",
+        "GLD", "SLV", "USO", "UNG",
+        "TLT", "BND", "HYG", "LQD", "AGG",
+        "ARKK", "ARKF", "ARKG", "ARKW",
+        "SOXX", "SMH", "HACK", "BOTZ", "ROBO",
+        "VNQ", "REET",
+    ],
+    "Global ETFs": [
+        "EWJ", "EWG", "EWU", "EWZ", "EWY", "EWT",
+        "FXI", "INDA", "INDY",
+        "KWEB", "CQQQ",
+    ],
+    "Commodities": [
+        "GC=F", "SI=F", "CL=F", "NG=F", "HG=F",
+        "ZC=F", "ZW=F", "ZS=F",
+        "GLD", "SLV", "USO", "PDBC",
+    ],
+    "Crypto": [
+        "BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "XRP-USD",
+        "ADA-USD", "DOGE-USD", "AVAX-USD", "DOT-USD", "MATIC-USD",
+        "LINK-USD", "UNI-USD", "ATOM-USD", "LTC-USD", "NEAR-USD",
+        "APT-USD", "ARB-USD", "OP-USD", "FIL-USD", "AAVE-USD",
+    ],
+    "Currencies (Forex)": [
+        "EURUSD=X", "GBPUSD=X", "USDJPY=X", "USDCHF=X",
+        "AUDUSD=X", "USDCAD=X", "USDINR=X", "USDCNY=X",
+        "GBPINR=X", "EURINR=X", "JPYINR=X",
+    ],
+    "Indices": [
+        "^NSEI", "^BSESN", "^NSEBANK",
+        "^GSPC", "^DJI", "^IXIC", "^RUT",
+        "^FTSE", "^GDAXI", "^FCHI", "^N225", "^HSI",
+        "^VIX",
+    ],
+    "Bonds / Rates": [
+        "^TNX", "^TYX", "^FVX", "^IRX",
+        "TLT", "IEF", "SHY", "BND",
+    ],
 }
 
-DEFAULT_WATCHLIST = ["RELIANCE.NS", "TCS.NS", "AAPL", "MSFT", "SPY", "BTC-USD"]
+# ── TICKER FORMAT GUIDE (shown in UI) ──
+TICKER_FORMAT_GUIDE = {
+    "NSE India": "Add .NS (e.g. RELIANCE.NS, TCS.NS)",
+    "BSE India": "Add .BO (e.g. RELIANCE.BO, TCS.BO)",
+    "US Stocks": "Plain symbol (e.g. AAPL, MSFT, TSLA)",
+    "London": "Add .L (e.g. SHEL.L, AZN.L)",
+    "Germany": "Add .DE (e.g. SAP.DE, BMW.DE)",
+    "France": "Add .PA (e.g. MC.PA, TTE.PA)",
+    "Japan": "Add .T (e.g. 7203.T for Toyota)",
+    "Hong Kong": "Add .HK (e.g. 0700.HK for Tencent)",
+    "Korea": "Add .KS (e.g. 005930.KS for Samsung)",
+    "Switzerland": "Add .SW (e.g. NESN.SW for Nestle)",
+    "Canada": "Add .TO (e.g. SHOP.TO for Shopify)",
+    "Australia": "Add .AX (e.g. BHP.AX, CBA.AX)",
+    "Crypto": "Add -USD (e.g. BTC-USD, ETH-USD)",
+    "Forex": "Add =X (e.g. USDINR=X, EURUSD=X)",
+    "Futures": "Add =F (e.g. GC=F for Gold, CL=F for Oil)",
+    "Indices": "Prefix ^ (e.g. ^NSEI, ^GSPC, ^VIX)",
+}
+
+DEFAULT_WATCHLIST = ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "AAPL", "MSFT", "NVDA", "SPY", "QQQ", "GLD", "BTC-USD"]
 
 
 def get_currency_symbol(info):
