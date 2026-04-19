@@ -189,6 +189,36 @@ if mode == "Analyze":
                     st.markdown("**Eclipse approaching** ⚠️")
                 st.markdown("Dhana Yogas: **" + str(len(j["dhana_yogas"])) + "** | BNN: **" + str(j["bnn_score"]) + "**/10")
 
+
+        # ── INTERACTIVE CHART ──
+        st.markdown('<div class="section-label">Interactive Chart</div>', unsafe_allow_html=True)
+        from engines.chart_engine import build_main_chart, build_returns_chart
+
+        chart_col1, chart_col2 = st.columns([3, 1])
+        with chart_col2:
+            chart_period = st.selectbox("Chart Period", ["1mo", "3mo", "6mo", "1y", "2y", "5y"], index=3, key="cp")
+            show_sma = st.checkbox("SMA Lines", value=True, key="csma")
+            show_bb = st.checkbox("Bollinger Bands", value=True, key="cbb")
+            show_vol = st.checkbox("Volume", value=True, key="cvol")
+
+        jyotish_events = None
+        if use_jyotish and j:
+            jyotish_events = []
+            ed = j.get("details", {}).get("events", {})
+            for r in ed.get("retrogrades", []):
+                jyotish_events.append({"date": datetime.now().strftime("%Y-%m-%d"), "label": r["planet"] + " R", "color": "#ffa726"})
+            for conj in ed.get("conjunctions", []):
+                jyotish_events.append({"date": datetime.now().strftime("%Y-%m-%d"), "label": conj["planet1"][0] + "+" + conj["planet2"][0], "color": "#ab47bc"})
+
+        main_chart = build_main_chart(ticker, chart_period, show_bb, show_sma, show_vol, jyotish_events)
+        if main_chart:
+            st.plotly_chart(main_chart, use_container_width=True)
+
+        with st.expander("Cumulative Returns"):
+            ret_chart = build_returns_chart(ticker, chart_period)
+            if ret_chart:
+                st.plotly_chart(ret_chart, use_container_width=True)
+
         st.markdown("<div class=\"section-label\">Combined Verdict</div>", unsafe_allow_html=True)
         jsc = j["combined_score"] if j else None
         score, sig, wts = verdict_calc(d["tech_score"], d["fund_score"], jsc, use_jyotish)
