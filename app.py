@@ -16,7 +16,7 @@ from engines.realtime_market import (
 
 
 with st.sidebar:
-    st.markdown("## StockMind AI")
+    st.markdown("## \U0001f4ca StockMind AI")
     st.caption("Global Market Intelligence + Vedic Astrology")
     st.markdown("---")
     use_jyotish = st.toggle("Vedic Jyotish Layer", value=False)

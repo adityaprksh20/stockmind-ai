@@ -243,3 +243,51 @@ section[data-testid="stSidebar"] .pill-blue { color: #1e40af !important; }
     section[data-testid="stSidebar"] .pill-yellow { color: #e3b341 !important; }
     section[data-testid="stSidebar"] .pill-blue { color: #58a6ff !important; }
 }
+
+
+/* ════════════════════════════════════════════════════════
+   APP TITLE (sidebar) + MODE HEADING (main panel)
+   ════════════════════════════════════════════════════════ */
+
+/* Sidebar app name — bold, larger, eye-catching */
+section[data-testid="stSidebar"] h2 {
+    font-size: 1.6rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.5px !important;
+    background: linear-gradient(135deg, #58a6ff, #a78bfa) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    padding-bottom: 0.2rem !important;
+}
+
+/* Main panel mode heading (h1) — clean, matched size */
+.stMarkdown h1 {
+    font-size: 1.8rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.3px !important;
+    margin-bottom: 0.8rem !important;
+    padding-bottom: 0 !important;
+}
+
+/* Stock name heading (h3) in Analyze mode */
+.stMarkdown h3 {
+    font-size: 1.2rem !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.3rem !important;
+}
+
+/* Subheadings in expanders and sections */
+.stMarkdown h4 {
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+}
+
+@media (prefers-color-scheme: dark) {
+    section[data-testid="stSidebar"] h2 {
+        background: linear-gradient(135deg, #58a6ff, #a78bfa) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+    }
+}
